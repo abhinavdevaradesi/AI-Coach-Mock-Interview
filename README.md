@@ -1,156 +1,144 @@
 # AI Coach Mock Interview
 
-Lightweight, layered Python application that runs interactive mock interviews using an LLM via the Ollama client.
+A command-line mock interview coach powered by [Ollama](https://ollama.com) and local LLMs (default: `llama3.2`). It conducts realistic, role-specific interviews, asks one question at a time, and evaluates each answer with a score, strengths, areas for improvement, and an ideal answer — before moving to the next question.
 
-This README explains how to run the CLI locally and describes deployment options if you want to expose the app as a web service.
+## Features
 
-Project structure
+- Interactive CLI interview flow
+- Customizable job role and difficulty level (Easy / Medium / Hard)
+- One question at a time, no spoilers before you answer
+- Structured evaluation after every response: score, strengths, gaps, ideal answer, and next question
+- Runs entirely locally via Ollama — no API keys, no external services
+- Clean, modular architecture (controllers, services, models, utils)
+
+## Project Structure
 
 ```
 interview_coach/
-├─ controllers/
-│  └─ cli_controller.py        # CLI entry for running an interview session
-├─ models/
-│  └─ interview.py             # creates the initial prompt messages
-├─ services/
-│  └─ interview_service.py     # orchestrates session state and calls to LLM client
-├─ utils/
-│  └─ ollama_client.py         # wrapper for `ollama.chat(...)`
-├─ main.py                     # app entrypoint that instantiates CLIController
-├─ prompts.py                  # system prompt template used to instruct the model
-├─ requirements.txt            # dependencies (contains `ollama`)
-└─ README.md
+├── controllers/
+│   └── cli_controller.py      # CLI input/output loop
+├── models/
+│   └── interview.py            # Initial message state for a session
+├── services/
+│   └── interview_service.py    # Orchestrates prompts and Ollama calls
+├── utils/
+│   └── ollama_client.py        # Thin wrapper around the Ollama chat API
+├── main.py                     # Entry point
+├── prompts.py                  # System prompt template
+└── requirements.txt
 ```
 
-Core features
-- Interactive mock interview loop via the command line
-- Role and difficulty-specific prompts (see `prompts.py`)
-- Clean, beginner-friendly architecture (controllers / services / models / utils)
+## Prerequisites
 
-Prerequisites
-- Python 3.10+ (3.11 recommended)
-- Pip for installing Python packages
-- Ollama runtime and desired model installed locally (this project uses `llama3.2` by default)
+- Python 3.9+
+- [Ollama](https://ollama.com) installed and running locally
+- A pulled model (default `llama3.2`):
 
-Quick start (Windows PowerShell)
+  ```bash
+  ollama pull llama3.2
+  ```
 
-1. Create and activate a virtual environment (optional but recommended):
+## Installation
 
-```powershell
-python -m venv .venv
-.\\.venv\\Scripts\\Activate.ps1
-```
+1. Clone the repository:
 
-2. Install Python dependencies:
+   ```bash
+   git clone https://github.com/<your-username>/ai-coach-mock-interview.git
+   cd ai-coach-mock-interview/interview_coach
+   ```
 
-```powershell
-python -m pip install -r .\\interview_coach\\requirements.txt
-```
+2. (Recommended) Create and activate a virtual environment:
 
-3. Make sure Ollama is installed and the model is available (example pulls `llama3.2`):
+   ```bash
+   python -m venv venv
+   source venv/bin/activate   # on Windows: venv\Scripts\activate
+   ```
 
-```powershell
-# install/pull model according to Ollama docs, example:
-# ollama pull llama3.2
-```
+3. Install dependencies:
 
-4. Run the CLI application:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-```powershell
-python .\\interview_coach\\main.py
-```
+4. Make sure Ollama is running in the background:
 
-Usage
-- When running the CLI, you'll be prompted for Job Role and Difficulty (Easy/Medium/Hard).
-- The AI prints an introduction + first question. Type your answer and press Enter.
-- Type `exit` to quit the interview.
+   ```bash
+   ollama serve
+   ```
 
-Key files
-- `prompts.py` — system prompt template. Edit to change the interview style, rules, or output format.
-- `utils/ollama_client.py` — thin wrapper that calls `ollama.chat(...)`. Replace this to use a different provider.
-- `controllers/cli_controller.py` — CLI loop. Easy to adapt into a web endpoint.
+## Usage
 
-Deployment options — can I deploy this online?
-Yes. The recommended path depends on whether you want to continue using Ollama (self-hosted model) or switch to a hosted LLM provider.
-
-Option A — Run on a remote VM / VPS (keeps Ollama local)
-- Provision a Linux VM (DigitalOcean, AWS EC2, Linode).
-- Install Ollama and pull the model on that VM.
-- Clone this repo, install Python deps and run the app or run a web wrapper (FastAPI) to expose an HTTP API.
-
-High-level steps (Ubuntu example):
+Run the application from the `interview_coach` directory:
 
 ```bash
-# on your VM
-git clone <repo-url>
-cd "AI Coach Mock Interview"/interview_coach
-python -m venv .venv; source .venv/bin/activate
-pip install -r requirements.txt
-# install and run Ollama (follow Ollama docs) and pull the model
 python main.py
 ```
 
-Option B — Containerize and deploy
-- Build a Docker image for the Python app and run it on a host that can access Ollama.
-- If Ollama runs on the host, configure networking so the container can reach the Ollama API.
+You'll be prompted to enter:
 
-Example Dockerfile (app only):
+1. **Job Role** — e.g. `Backend Developer`, `Data Analyst`, `Product Manager`
+2. **Difficulty** — `Easy`, `Medium`, or `Hard`
 
-```dockerfile
-FROM python:3.11-slim
-WORKDIR /app
-COPY interview_coach/ ./interview_coach
-RUN pip install --no-cache-dir -r interview_coach/requirements.txt
-CMD ["python", "interview_coach/main.py"]
+The interviewer will introduce itself and ask the first question. Type your answer and press Enter to receive an evaluation and the next question. Type `exit` at any time to end the session.
+
+### Example Session
+
+```
+===== AI MOCK INTERVIEW COACH =====
+Enter Job Role: Backend Developer
+Enter Difficulty (Easy/Medium/Hard): Medium
+Starting the Interview Session...
+
+INTERVIEWER:
+Hi, I'm your AI interview coach for this session...
+What is the difference between SQL and NoSQL databases, and when would you choose one over the other?
+
+Your Answer (type 'exit' to quit): SQL databases are relational...
+
+EVALUATION:
+Score: 7/10
+
+Strengths:
+- Correctly identified relational vs non-relational structure
+- Mentioned use cases
+
+Areas for Improvement:
+- Could mention scalability tradeoffs (vertical vs horizontal)
+
+Ideal Answer:
+...
+
+Next Question:
+...
 ```
 
-Option C — Convert to a web app (FastAPI) and host it
-- Add a small HTTP API (`web_app.py`) that calls `InterviewService` and stores sessions in memory or a small DB.
-- Containerize the web app and deploy to a cloud container service (Railway, Fly, DigitalOcean App Platform, AWS ECS).
+## Configuration
 
-Minimal FastAPI sketch (not included in repo by default):
+By default, the app uses the `llama3.2` model. To use a different model, update the model name in `services/interview_service.py`:
 
 ```python
-# web_app.py
-from fastapi import FastAPI
-from pydantic import BaseModel
-from services.interview_service import InterviewService
-
-app = FastAPI()
-service = InterviewService()
-sessions = {}
-
-class StartRequest(BaseModel):
-    job_role: str
-    difficulty: str
-
-@app.post('/start')
-def start(req: StartRequest):
-    messages = service.start_interview(req.job_role, req.difficulty)
-    sid = str(len(sessions) + 1)
-    sessions[sid] = messages
-    ai_message = service.get_next_response(messages)
-    return {'session_id': sid, 'message': ai_message}
+self.client = OllamaClient(model="your-model-name")
 ```
 
-Option D — Use a hosted LLM API instead of Ollama
-- Replace `utils/ollama_client.py` with a client that calls a hosted API (OpenAI, Anthropic, etc.).
-- This allows you to deploy the app anywhere without running Ollama, but it introduces API costs and requires secure key management.
+## How It Works
 
-Security & operational notes
-- Do not expose Ollama admin interfaces publicly without access control.
-- For a public web deployment add authentication, rate-limiting and logging.
-- Keep API keys and secrets in environment variables and never commit them.
+- `prompts.py` builds a system prompt that defines the interviewer's persona, rules, difficulty guidelines, and required output format.
+- `models/interview.py` initializes the conversation with that system prompt.
+- `services/interview_service.py` manages the conversation state, appending user answers and AI responses while delegating the actual model call to `OllamaClient`.
+- `utils/ollama_client.py` wraps the `ollama.chat()` call.
+- `controllers/cli_controller.py` handles all terminal I/O and drives the interview loop.
 
-Troubleshooting
-- `ModuleNotFoundError: No module named 'ollama'` — install the package or run in mock mode (if implemented).
-- `Model not found` — ensure the Ollama model (e.g. `llama3.2`) is pulled into the Ollama runtime on the machine running the app.
+## Roadmap
 
-Contributing
-- Pull requests welcome. Suggestions:
-  - Add a small `web/` example with `docker-compose` that shows Ollama + app networking.
-  - Add unit tests around the interview flow.
+- [ ] Save interview transcripts to a file
+- [ ] Add a final summary report at the end of the session
+- [ ] Support multiple LLM backends (OpenAI, Anthropic, etc.)
+- [ ] Web-based UI
 
-License
-- Add a `LICENSE` file if you intend to publish under a specific license (MIT is common for small projects).
+## Contributing
 
+Contributions are welcome. Please open an issue or submit a pull request with a clear description of the change.
+
+## License
+
+This project is licensed under the MIT License.
